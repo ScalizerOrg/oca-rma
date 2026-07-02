@@ -1551,7 +1551,6 @@ class Rma(models.Model):
             rma.message_subscribe([rma.user_id.partner_id.id])
         return rma
 
-    @api.returns("mail.message", lambda value: value.id)
     def message_post(self, **kwargs):
         """Set 'sent' field to True when an email is sent from rma form
         view. This field (sent) is used to set the appropriate style to the
