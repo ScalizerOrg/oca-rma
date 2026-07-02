@@ -131,8 +131,9 @@ class SaleOrderLineRmaWizard(models.TransientModel):
         domain="[('id', 'in', allowed_product_ids)]",
     )
     uom_category_id = fields.Many2one(
-        comodel_name="uom.category",
-        related="product_id.uom_id.category_id",
+        # MIGRATION NOTE (Odoo 16→19): uom.category was removed; using relative_uom_id
+        comodel_name="uom.uom",
+        related="product_id.uom_id.relative_uom_id",
     )
     quantity = fields.Float(
         digits="Product Unit of Measure",
@@ -145,7 +146,7 @@ class SaleOrderLineRmaWizard(models.TransientModel):
     uom_id = fields.Many2one(
         comodel_name="uom.uom",
         string="Unit of Measure",
-        domain="[('category_id', '=', uom_category_id)]",
+        domain="[('relative_uom_id', '=', uom_category_id)]",
         required=True,
     )
     allowed_picking_ids = fields.Many2many(

@@ -114,10 +114,10 @@
 
     <record id="action_rma_config_settings" model="ir.actions.act_window">
         <field name="name">Settings</field>
-        <field name="type">ir.actions.act_window</field>
+        <!-- [MIG v19]: type field removed from XML (auto-set by ORM); target='inline' removed, use 'current' -->
         <field name="res_model">res.config.settings</field>
         <field name="view_mode">form</field>
-        <field name="target">inline</field>
+        <field name="target">current</field>
         <field name="context">{'module' : 'rma', 'bin_size': False}</field>
     </record>
 

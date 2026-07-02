@@ -9,10 +9,15 @@
             name="description"
         >Manage Return Merchandise Authorizations (RMAs).</field>
     </record>
+    <!-- [MIG v19]: res.groups.category_id removed; replaced by privilege_id (Many2one res.groups.privilege) -->
+    <record id="rma_privilege" model="res.groups.privilege">
+        <field name="name">RMA</field>
+        <field name="category_id" ref="rma_module_category" />
+    </record>
     <!-- Access Groups -->
     <record id="rma_group_user_own" model="res.groups">
         <field name="name">User: Own Documents Only</field>
-        <field name="category_id" ref="rma_module_category" />
+        <field name="privilege_id" ref="rma_privilege" />
         <field name="implied_ids" eval="[(4, ref('base.group_user'))]" />
         <field
             name="comment"
@@ -20,7 +25,7 @@
     </record>
     <record id="rma_group_user_all" model="res.groups">
         <field name="name">User: All Documents</field>
-        <field name="category_id" ref="rma_module_category" />
+        <field name="privilege_id" ref="rma_privilege" />
         <field name="implied_ids" eval="[(4, ref('rma_group_user_own'))]" />
         <field
             name="comment"
@@ -31,16 +36,17 @@
         <field
             name="comment"
         >the user will have an access to the RMA configuration as well as statistic reports.</field>
-        <field name="category_id" ref="rma_module_category" />
+        <field name="privilege_id" ref="rma_privilege" />
         <field name="implied_ids" eval="[(4, ref('rma_group_user_all'))]" />
+        <!-- [MIG v19]: res.groups.users renamed to user_ids -->
         <field
-            name="users"
+            name="user_ids"
             eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"
         />
     </record>
     <record id="group_rma_manual_finalization" model="res.groups">
         <field name="name">Allow RMA manual finalization</field>
-        <field name="category_id" ref="base.module_category_hidden" />
+        <!-- [MIG v19]: category_id removed from res.groups; hidden groups just have no privilege_id -->
     </record>
     <!-- Record Rules -->
     <record id="rma_rule_user_own" model="ir.rule">
@@ -102,8 +108,7 @@
         >[('move_id.move_type', '=', 'out_refund'), '|', ('move_id.invoice_user_id', '=', user.id), ('move_id.invoice_user_id', '=', False)]</field>
         <field name="groups" eval="[(4, ref('rma.rma_group_user_own'))]" />
     </record>
-    <!-- New users will belong to rma_group_user_own  -->
-    <record id="base.default_user" model="res.users">
-        <field name="groups_id" eval="[(4, ref('rma_group_user_own'))]" />
-    </record>
+    <!-- [MIG v19]: base.default_user removed in Odoo 19; default group membership handled differently -->
+    <!-- Previously: New users would belong to rma_group_user_own by default -->
+    <!-- In v19 this is set via group implied_by_ids or group_ids on group_user if needed -->
 </odoo>

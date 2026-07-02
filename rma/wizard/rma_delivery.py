@@ -34,7 +34,10 @@ class RmaReDeliveryWizard(models.TransientModel):
         required=True,
         domain="[('company_id', '=', company_id)]",
     )
-    uom_category_id = fields.Many2one(related="product_id.uom_id.category_id")
+    uom_category_id = fields.Many2one(
+        # MIGRATION NOTE (Odoo 16→19): uom.uom.category_id removed, using relative_uom_id instead
+        related="product_id.uom_id.relative_uom_id"
+    )
     rma_return_grouping = fields.Boolean(
         string="Group RMA returns by customer address and warehouse",
         default=lambda self: self.env.company.rma_return_grouping,

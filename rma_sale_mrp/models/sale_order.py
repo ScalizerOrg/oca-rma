@@ -75,7 +75,8 @@ class SaleOrderLine(models.Model):
         return self.move_ids.filtered(
             lambda m: (
                 m.state == "done"
-                and not m.scrapped
+                # [MIG v19]: stock.move.scrapped removed; scrap locs use usage='inventory'
+                and m.location_dest_id.usage != "inventory"
                 and m.location_dest_id.usage == "customer"
                 and (
                     not m.origin_returned_move_id

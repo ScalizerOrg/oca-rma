@@ -5,7 +5,8 @@ from ast import literal_eval
 from collections import defaultdict
 
 from odoo import _, api, fields, models
-from odoo.osv.expression import AND
+# [MIG v19]: odoo.osv.expression deprecated; replaced with odoo.fields.Domain
+from odoo.fields import Domain
 
 PROCESSED_STATES = ["received", "refunded", "replaced", "finished"]
 AWAITING_ACTION_STATES = ["waiting_return", "waiting_replacement", "confirmed"]
@@ -92,7 +93,7 @@ class RmaOperation(models.Model):
         )
         state_by_op = defaultdict(int)
         for group in self.env["rma"].read_group(
-            AND([[("operation_id", "!=", False)]]),
+            Domain.AND([[("operation_id", "!=", False)]]),
             groupby=["operation_id", "state"],
             fields=["id"],
             lazy=False,
@@ -127,7 +128,7 @@ class RmaOperation(models.Model):
         name = self.display_name + ": " + _("Draft")
         return self._get_action(
             name,
-            domain=AND(
+            domain=Domain.AND(
                 [
                     [("operation_id", "=", self.id)],
                     self._get_rma_draft_domain(),
@@ -140,7 +141,7 @@ class RmaOperation(models.Model):
         name = self.display_name + ": " + _("Awaiting Action")
         return self._get_action(
             name,
-            domain=AND(
+            domain=Domain.AND(
                 [
                     [("operation_id", "=", self.id)],
                     self._get_rma_awaiting_action_domain(),
@@ -153,7 +154,7 @@ class RmaOperation(models.Model):
         name = self.display_name + ": " + _("Processed")
         return self._get_action(
             name,
-            domain=AND(
+            domain=Domain.AND(
                 [
                     [("operation_id", "=", self.id)],
                     self._get_rma_processed_domain(),

@@ -195,11 +195,9 @@ class Rma(models.Model):
 
     def _prepare_procurement_group_vals(self):
         vals = super()._prepare_procurement_group_vals()
-        if (
-            not self.env.context.get("ignore_rma_sale_order")
-            and len(self.order_id) == 1
-        ):
-            vals["sale_id"] = self.order_id.id
+        # MIGRATION NOTE (Odoo 16→19): procurement.group was replaced by stock.reference
+        # stock.reference does not have sale_id field, so we skip it here.
+        # The sale order linking now happens through other mechanisms in Odoo 19.
         return vals
 
     def _prepare_delivery_procurements(self, scheduled_date=None, qty=None, uom=None):

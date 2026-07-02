@@ -159,7 +159,7 @@ class Rma(models.Model):
         readonly=False,
     )
     procurement_group_id = fields.Many2one(
-        comodel_name="procurement.group",
+        comodel_name="stock.reference",
         string="Procurement group",
     )
     priority = fields.Selection(
@@ -259,7 +259,9 @@ class Rma(models.Model):
         compute="_compute_remaining_qty",
     )
     uom_category_id = fields.Many2one(
-        related="product_id.uom_id.category_id", string="Category UoM"
+        # MIGRATION NOTE (Odoo 16→19): uom.uom.category_id was removed in Odoo 19.
+        # Now using relative_uom_id (the base/reference UOM of the group).
+        related="product_id.uom_id.relative_uom_id", string="Category UoM"
     )
     # Split fields
     can_be_split = fields.Boolean(
@@ -360,7 +362,8 @@ class Rma(models.Model):
     @api.depends(
         "delivery_move_ids",
         "delivery_move_ids.state",
-        "delivery_move_ids.scrapped",
+        # [MIG v19]: stock.move.scrapped removed; scrap_location removed; scrap locs use usage='inventory'
+        "delivery_move_ids.location_dest_id.usage",
         "delivery_move_ids.product_uom_qty",
         "delivery_move_ids.quantity",
         "delivery_move_ids.product_uom",
@@ -382,7 +385,8 @@ class Rma(models.Model):
         for record in self:
             delivered_qty = 0.0
             for move in record.delivery_move_ids.filtered(
-                lambda r: r.state != "cancel" and not r.scrapped
+                # [MIG v19]: stock.move.scrapped removed; scrap locs use usage='inventory'
+                lambda r: r.state != "cancel" and r.location_dest_id.usage != "inventory"
             ):
                 if move.quantity:
                     quantity = move.product_uom._compute_quantity(
@@ -762,9 +766,9 @@ class Rma(models.Model):
             self.message_subscribe([self.partner_id.id])
 
     def _prepare_procurement_group_vals(self):
+        # In Odoo 19, stock.reference replaces procurement.group
+        # stock.reference only has 'name' field
         return {
-            "move_type": "direct",
-            "partner_id": self and self.partner_shipping_id.id or False,
             "name": self and ", ".join(self.mapped("name")) or False,
         }
 
@@ -774,15 +778,15 @@ class Rma(models.Model):
         self.ensure_one()
         group = group or self.procurement_group_id
         if not group:
-            group = self.env["procurement.group"].create(
+            group = self.env["stock.reference"].create(
                 self._prepare_procurement_group_vals()
             )
         return {
             "company_id": self.company_id,
-            "group_id": group,
+            "reference_ids": group,  # In Odoo 19: reference_ids replaces group_id
             "date_planned": scheduled_date or fields.Datetime.now(),
             "warehouse_id": warehouse or self.warehouse_id,
-            "partner_id": group.partner_id.id,
+            "partner_id": self.partner_shipping_id.id if self.partner_shipping_id else False,
             "priority": self.priority,
         }
 
@@ -801,13 +805,14 @@ class Rma(models.Model):
 
     def _prepare_reception_procurements(self):
         procurements = []
-        group_model = self.env["procurement.group"]
+        reference_model = self.env["stock.reference"]
+        rule_model = self.env["stock.rule"]
         for rma in self:
             if not rma._product_is_storable():
                 continue
             group = rma.procurement_group_id
             if not group:
-                group = group_model.create(rma._prepare_procurement_group_vals())
+                group = reference_model.create(rma._prepare_procurement_group_vals())
             product = self.product_id
             if self.different_return_product:
                 if not self.return_product_id:
@@ -820,7 +825,7 @@ class Rma(models.Model):
                     )
                 product = self.return_product_id
             procurements.append(
-                group_model.Procurement(
+                rule_model.Procurement(
                     product,
                     rma.product_uom_qty,
                     rma.product_uom,
@@ -836,7 +841,7 @@ class Rma(models.Model):
     def _create_receipt(self):
         procurements = self._prepare_reception_procurements()
         if procurements:
-            self.env["procurement.group"].run(procurements)
+            self.env["stock.rule"].run(procurements)
         reception_move = self.sudo().reception_move_id
         reception_move.picking_id.action_assign()
         if self.operation_id.auto_confirm_reception:
@@ -1293,7 +1298,7 @@ class Rma(models.Model):
             rmas = self.browse().concat(*list(rmas))
             if not rmas:
                 continue
-            proc_group = self.env["procurement.group"].create(
+            proc_group = self.env["stock.reference"].create(
                 rmas._prepare_procurement_group_vals()
             )
             rmas.write({"procurement_group_id": proc_group.id})
@@ -1312,7 +1317,7 @@ class Rma(models.Model):
             rmas = self.browse().concat(*list(rmas))
             if not rmas:
                 continue
-            proc_group = self.env["procurement.group"].create(
+            proc_group = self.env["stock.reference"].create(
                 rmas._prepare_procurement_group_vals()
             )
             rmas.write({"procurement_group_id": proc_group.id})
@@ -1336,23 +1341,24 @@ class Rma(models.Model):
     def _prepare_delivery_procurements(self, scheduled_date=None, qty=None, uom=None):
         self._assign_delivery_procurement_group()
         procurements = []
-        group_model = self.env["procurement.group"]
+        rule_model = self.env["stock.rule"]
+        reference_model = self.env["stock.reference"]
         for rma in self:
             if not rma.procurement_group_id:
-                rma.procurement_group_id = group_model.create(
+                rma.procurement_group_id = reference_model.create(
                     rma._prepare_procurement_group_vals()
                 )
 
             vals = rma._prepare_delivery_procurement_vals(scheduled_date)
-            group = vals.get("group_id")
+            group = vals.get("reference_ids") or rma.procurement_group_id
             procurements.append(
-                group_model.Procurement(
+                rule_model.Procurement(
                     rma.product_id,
                     qty or rma.product_uom_qty,
                     uom or rma.product_uom,
                     rma._get_location_final(),
                     rma.product_id.display_name,
-                    group.name,
+                    group.name if group else rma.name,
                     rma.company_id,
                     vals,
                 )
@@ -1371,7 +1377,7 @@ class Rma(models.Model):
             scheduled_date, qty, uom
         )
         if procurements:
-            self.env["procurement.group"].run(procurements)
+            self.env["stock.rule"].run(procurements)
         pickings = defaultdict(lambda: self.browse())
         for rma in rmas_to_return:
             picking = rma.sudo().delivery_move_ids.picking_id.sorted(
@@ -1409,26 +1415,27 @@ class Rma(models.Model):
         self, warehouse, scheduled_date, product, qty, uom
     ):
         procurements = []
-        group_model = self.env["procurement.group"]
+        rule_model = self.env["stock.rule"]
+        reference_model = self.env["stock.reference"]
         for rma in self:
             if not rma._product_is_storable():
                 continue
 
             if not rma.procurement_group_id:
-                rma.procurement_group_id = group_model.create(
+                rma.procurement_group_id = reference_model.create(
                     rma._prepare_procurement_group_vals()
                 )
 
             vals = rma._prepare_replace_procurement_vals(warehouse, scheduled_date)
-            group = vals.get("group_id")
+            group = vals.get("reference_ids") or rma.procurement_group_id
             procurements.append(
-                group_model.Procurement(
+                rule_model.Procurement(
                     product,
                     qty,
                     uom,
                     rma._get_location_final(),
                     product.display_name,
-                    group.name,
+                    group.name if group else rma.name,
                     rma.company_id,
                     vals,
                 )
@@ -1444,7 +1451,7 @@ class Rma(models.Model):
             warehouse, scheduled_date, product, qty, uom
         )
         if procurements:
-            self.env["procurement.group"].run(procurements)
+            self.env["stock.rule"].run(procurements)
         new_moves = self.delivery_move_ids - moves_before
         body = ""
         # The product replacement could explode into several moves like in the case of

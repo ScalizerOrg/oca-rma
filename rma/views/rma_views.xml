@@ -70,7 +70,8 @@
                     string="Unassigned RMAs"
                     domain="[('user_id','=', False)]"
                 />
-                <group string="Group By" name="group_by">
+                <!-- [MIG v19]: <group> in search views no longer supports string attribute -->
+                <group name="group_by">
                     <filter
                         string="Partner"
                         name="partner_id_group_by"
@@ -342,7 +343,7 @@
                                 <field
                                     name="product_uom"
                                     groups="uom.group_uom"
-                                    domain="[('category_id', '=', uom_category_id)]"
+                                    domain="[('relative_uom_id', '=', uom_category_id)]"
                                     readonly="state != 'draft'"
                                     force_save="1"
                                 />

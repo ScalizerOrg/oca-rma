@@ -16,7 +16,8 @@ class SaleOrderLine(models.Model):
             [
                 ("move_id", "in", moves.ids),
                 ("state", "=", "done"),
-                ("move_id.scrapped", "=", False),
+                # [MIG v19]: stock.move.scrapped removed; scrap locs use usage='inventory'
+                ("move_id.location_dest_id.usage", "!=", "inventory"),
             ],
             ["quantity:sum"],
             ["product_id", "lot_id"],
