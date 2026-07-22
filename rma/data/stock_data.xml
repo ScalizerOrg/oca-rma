@@ -2,7 +2,9 @@
 <data noupdate="1">
     <record id="stock_location_rma" model="stock.location">
         <field name="name">RMA</field>
-        <field name="location_id" ref="stock.stock_location_locations" />
+        <!-- [MIG] v19: stock.stock_location_locations (Physical Locations root
+             view) was removed; RMA is now a top-level view location, like the
+             per-warehouse view_location_id created without a parent. -->
         <field name="usage">view</field>
         <field name="company_id" />
     </record>
