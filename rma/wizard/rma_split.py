@@ -24,13 +24,10 @@ class RmaReSplitWizard(models.TransientModel):
         required=True,
     )
 
-    _sql_constraints = [
-        (
-            "check_product_uom_qty_positive",
-            "CHECK(product_uom_qty > 0)",
-            "Quantity must be greater than 0.",
-        ),
-    ]
+    _check_product_uom_qty_positive = models.Constraint(
+        "CHECK(product_uom_qty > 0)",
+        "Quantity must be greater than 0.",
+    )
 
     @api.model
     def fields_get(self, allfields=None, attributes=None):
