@@ -93,15 +93,13 @@ class RmaOperation(models.Model):
             }
         )
         state_by_op = defaultdict(int)
-        for group in self.env["rma"].read_group(
+        # [MIG v19]: read_group is deprecated, use _read_group instead.
+        for operation, state, count in self.env["rma"]._read_group(
             Domain.AND([[("operation_id", "!=", False)]]),
             groupby=["operation_id", "state"],
-            fields=["id"],
-            lazy=False,
+            aggregates=["__count"],
         ):
-            operation_id = group.get("operation_id")[0]
-            state = group.get("state")
-            count = group.get("__count")
+            operation_id = operation.id
             if state == "draft":
                 state_by_op[(operation_id, "count_rma_draft")] += count
             if state in PROCESSED_STATES:

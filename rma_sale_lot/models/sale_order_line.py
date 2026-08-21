@@ -12,21 +12,18 @@ class SaleOrderLine(models.Model):
 
     def _get_qty_done_by_product_lot(self, moves):
         res = defaultdict(float)
-        for group in self.env["stock.move.line"].read_group(
+        # [MIG v19]: read_group is deprecated, use _read_group instead.
+        for product, lot, quantity in self.env["stock.move.line"]._read_group(
             [
                 ("move_id", "in", moves.ids),
                 ("state", "=", "done"),
                 # [MIG v19]: stock.move.scrapped removed; scrap locs use usage='inventory'
                 ("move_id.location_dest_id.usage", "!=", "inventory"),
             ],
-            ["quantity:sum"],
-            ["product_id", "lot_id"],
-            lazy=False,
+            groupby=["product_id", "lot_id"],
+            aggregates=["quantity:sum"],
         ):
-            lot_id = group.get("lot_id")[0] if group.get("lot_id") else False
-            product_id = group.get("product_id")[0]
-            quantity = group.get("quantity")
-            res[(product_id, lot_id)] += quantity
+            res[(product.id, lot.id)] += quantity
         return res
 
     def prepare_sale_rma_data(self):
