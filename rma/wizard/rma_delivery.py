@@ -55,6 +55,11 @@ class RmaReDeliveryWizard(models.TransientModel):
         res = super().default_get(fields_list)
         rma_ids = self.env.context.get("active_ids")
         rma = self.env["rma"].browse(rma_ids)
+        if not rma:
+            # No active_ids in context: nothing to prefill (e.g. Odoo's generic
+            # registry sanity tests instantiate the wizard without opening it
+            # from an rma record).
+            return res
         warehouse_id = (
             self.env["stock.warehouse"]
             .search([("company_id", "=", rma[0].company_id.id)], limit=1)
