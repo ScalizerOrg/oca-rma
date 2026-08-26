@@ -85,7 +85,12 @@ class StockMove(models.Model):
                     )
                 )
         res = super()._action_done(cancel_backorder=cancel_backorder)
-        move_done = self.filtered(lambda r: r.state == "done").sudo()
+        # super()._action_done() can delete and replace some of the moves in
+        # self (e.g. mrp's kit-exploder, action_explode(), when a product is
+        # converted to a kit mid-flow), leaving stale ids in self. Restrict to
+        # the moves that still exist before filtering, otherwise .filtered()
+        # raises a MissingError on the deleted ones.
+        move_done = self.exists().filtered(lambda r: r.state == "done").sudo()
         # Set RMAs as received. We sudo so we can grant the operation even
         # if the stock user has no RMA permissions.
         to_be_received = (
